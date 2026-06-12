@@ -10,22 +10,22 @@ export function cn(...inputs) {
 const steps = [
   {
     id: 1,
-    title: "Agent 1: Data Extraction",
-    description: "Extracting raw data and structuring clinical text...",
+    title: "[Vision AI/Agent 1]",
+    description: "Tesseract OCR extracting structured clinical markers...",
     icon: FileText,
     duration: 1000,
   },
   {
     id: 2,
-    title: "Parallel Analysis (Agents 2 & 3)",
-    description: "Agent 2: Generating Concise Summary\nAgent 3: Analyzing Detailed Medical Terms",
+    title: "[LangChain Parallel Chain]",
+    description: "Spawning Agent 2 (Layman Engine) & Agent 3 (Deep Translation)...",
     icon: Zap,
     duration: 1500,
   },
   {
     id: 3,
-    title: "Agent 4: Clinical Gatekeeper",
-    description: "Reviewing summaries, identifying abnormal values, and calculating clinical urgency...",
+    title: "[Agent 4 - Clinical Evaluator]",
+    description: "Screening for critical biomarkers and calculating system urgency...",
     icon: ShieldAlert,
     duration: 1000,
   }

@@ -7,18 +7,9 @@ function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
-const CONCISE_SUMMARY = "Your overall blood test results look mostly normal, but there is one area that needs attention. Your Hemoglobin levels are lower than they should be, which might explain if you've been feeling unusually tired or weak lately. Everything else, including your kidney and liver functions, appears healthy. We recommend discussing this low hemoglobin with a doctor to see if you need an iron supplement or further testing.";
-
-const DETAILED_SUMMARY = "Analysis of the Complete Blood Count (CBC) reveals a clinically significant decrease in Hemoglobin (HGB) at 9.2 g/dL (reference range: 12.0 - 15.5 g/dL for adult females). This presentation is indicative of anemia. \n\nAnalogy: Think of Hemoglobin as the delivery trucks carrying oxygen to your body's cells. Right now, you don't have enough trucks, which means your body isn't getting the oxygen it needs to create energy.\n\nOther key metrics (WBC, Platelets, CMP) remain unremarkable. The specific etiology of the anemia (e.g., iron deficiency, vitamin B12 deficiency) requires further diagnostic differentiation, likely beginning with an iron panel and ferritin level check.";
-
-const FOLLOW_UP_QUESTIONS = [
-  "What could be causing this drop in my hemoglobin?",
-  "Do I need to start taking iron supplements or change my diet?",
-  "Are there any other tests I need to find the exact cause?",
-  "Is there anything I should look out for, like dizziness or extreme fatigue?"
-];
-
-export default function Dashboard() {
+export default function Dashboard({ data }) {
+  if (!data) return null;
+  const { concise_summary, detailed_summary, risk_assessment } = data;
   const [activeTab, setActiveTab] = useState('concise');
   const [bookingState, setBookingState] = useState('idle'); // idle, loading, success
   const [chatMessages, setChatMessages] = useState([
@@ -34,7 +25,7 @@ export default function Dashboard() {
     }, 1000);
   };
 
-  const handleSendChat = (e) => {
+  const handleSendChat = async (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
 
@@ -42,16 +33,18 @@ export default function Dashboard() {
     setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setChatInput('');
 
-    // Simulate bot response
-    setTimeout(() => {
-      let botResponse = "I understand you have questions. Based on your report, your main focus should be on the low Hemoglobin. It's nothing to panic about, but it's important to have a doctor review it so they can prescribe the right treatment, like an iron supplement if needed.";
-
-      if (userMessage.toLowerCase().includes('hemoglobin')) {
-         botResponse = "Hemoglobin is the protein in your red blood cells that carries oxygen. When it's low (like your 9.2 g/dL), it means your body isn't getting as much oxygen as it needs, which can make you feel very tired or weak. It's often easily treated!";
-      }
-
-      setChatMessages(prev => [...prev, { role: 'assistant', content: botResponse }]);
-    }, 1000);
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage })
+      });
+      const data = await res.json();
+      setChatMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+    } catch (e) {
+      console.error(e);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I am having trouble connecting to the network right now." }]);
+    }
   };
 
   useEffect(() => {
@@ -59,15 +52,15 @@ export default function Dashboard() {
   }, [chatMessages]);
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6 animate-fade-in pb-32">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-100">Your Health Dashboard</h1>
-        <p className="text-slate-400 mt-2">Analysis complete. Here is a breakdown of your results.</p>
+    <div className="max-w-md mx-auto p-4 space-y-6 animate-fade-in pb-48">
+      <header className="mb-4">
+        <h1 className="text-2xl font-bold text-slate-100">Your Health Dashboard</h1>
+        <p className="text-sm text-slate-400 mt-1">Analysis complete. Here is a breakdown of your results.</p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Summaries & Questions */}
-        <div className="lg:col-span-2 space-y-6">
+      <div className="flex flex-col gap-6">
+        {/* Summaries & Questions */}
+        <div className="space-y-6">
           {/* Summary Panels (Agent 2 & 3) */}
           <section className="bg-navy-800 rounded-2xl border border-navy-700 overflow-hidden">
             <div className="flex border-b border-navy-700">
@@ -102,8 +95,8 @@ export default function Dashboard() {
                   <h3 className="text-lg font-medium text-slate-200 mb-3">
                     {activeTab === 'concise' ? "High-Level Takeaway" : "Clinical Breakdown"}
                   </h3>
-                  <p className="text-slate-300 leading-relaxed whitespace-pre-line">
-                    {activeTab === 'concise' ? CONCISE_SUMMARY : DETAILED_SUMMARY}
+                  <p className="text-slate-300 leading-relaxed whitespace-pre-line text-sm">
+                    {activeTab === 'concise' ? concise_summary : detailed_summary}
                   </p>
                 </div>
               </div>
@@ -120,7 +113,7 @@ export default function Dashboard() {
               Bring these AI-generated questions to your next appointment to ensure you cover all bases:
             </p>
             <ul className="space-y-3">
-              {FOLLOW_UP_QUESTIONS.map((q, i) => (
+              {risk_assessment.questions.map((q, i) => (
                 <li key={i} className="flex items-start gap-3 bg-navy-900/50 p-4 rounded-xl border border-navy-700/50">
                   <span className="flex-shrink-0 w-6 h-6 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center text-sm font-medium">
                     {i + 1}
@@ -144,19 +137,19 @@ export default function Dashboard() {
 
               <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-4 mb-6">
                 <div className="flex justify-between items-start mb-2">
-                  <span className="text-slate-300 font-medium">Hemoglobin</span>
-                  <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-1 rounded">CRITICALLY LOW</span>
+                  <span className="text-slate-300 font-medium">{risk_assessment.flagged_biomarker}</span>
+                  <span className="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-1 rounded">{risk_assessment.status}</span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-orange-400">9.2</span>
-                  <span className="text-sm text-slate-400">g/dL</span>
+                  <span className="text-2xl font-bold text-orange-400">{risk_assessment.value}</span>
+                  <span className="text-sm text-slate-400">{risk_assessment.unit}</span>
                 </div>
-                <div className="text-xs text-slate-500 mt-1">Reference: 12.0 - 15.5 g/dL</div>
+                <div className="text-xs text-slate-500 mt-1">Reference: {risk_assessment.reference}</div>
               </div>
 
               <div className="bg-navy-900 rounded-xl p-4 mb-6">
-                <h4 className="text-sm font-medium text-slate-300 mb-2">Agent 4 Recommendation:</h4>
-                <p className="text-sm text-slate-400">Consultation with a Specialist (Hematologist or Primary Care) is highly advised to investigate the cause of anemia.</p>
+                <h4 className="text-sm font-medium text-slate-300 mb-2">Agent 4 Flag:</h4>
+                <p className="text-sm text-slate-400">{risk_assessment.recommendation}</p>
               </div>
 
               <button
@@ -193,9 +186,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Interactive Chatbot Window (Fixed to bottom) */}
+      {/* Interactive Chatbot Window (Fixed to bottom inside the mobile container) */}
       <div className="fixed bottom-0 left-0 w-full bg-navy-800 border-t border-navy-700 shadow-[0_-10px_40px_rgba(0,0,0,0.3)] z-50">
-        <div className="max-w-6xl mx-auto p-4 flex flex-col">
+        <div className="max-w-md mx-auto p-4 flex flex-col">
           <div className="h-48 overflow-y-auto mb-4 space-y-4 pr-2">
             {chatMessages.map((msg, i) => (
               <div key={i} className={cn("flex gap-3", msg.role === 'user' ? "flex-row-reverse" : "")}>
